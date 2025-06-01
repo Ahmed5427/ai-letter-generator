@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>سجل الخطابات - مولد الخطابات بالذكاء الاصطناعي</title>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+    <header class="header">
+        <nav class="navbar">
+            <div class="nav-container">
+                <div class="logo">
+                    <img src="https://media.licdn.com/dms/image/v2/D4D0BAQF4bJhChNDPpw/company-logo_200_200/company-logo_200_200/0/1693724328555/nabatik_logo?e=2147483647&v=beta&t=DJcoQIeXKhJyJWGQvph4ciSFpaJC2wHU6PjYqpWxvOY" alt="شعار الشركة" class="logo-img">
+                    <h1>مولد الخطابات بالذكاء الاصطناعي</h1>
+                </div>
+                <ul class="nav-menu">
+                    <li><a href="index.html" class="nav-link">الرئيسية</a></li>
+                                        <li><a href="create-letter.html" class="nav-link">إنشاء خطاب جديد</a></li>
+                    <li><a href="letter-records.html" class="nav-link active">سجل الخطابات</a></li>
+                    <li><a href="review-letter.html" class="nav-link">مراجعة خطاب</a></li>
+                </ul>
+            </div>
+        </nav>
+    </header>
+
+    <main class="main-content">
+        <div class="container">
+            <div class="page-header">
+                <h2><i class="fas fa-history"></i> سجل الخطابات</h2>
+            </div>
+
+            <div class="records-container">
+                <div class="search-filters">
+                    <div class="search-grid">
+                        <div class="search-group">
+                            <label for="searchInput">ابحث عن المستلم أو الرقم المرجعي للخطاب</label>
+                            <div class="search-input-wrapper">
+                                <input type="text" id="searchInput" placeholder="ابحث هنا...">
+                                <i class="fas fa-search"></i>
+                            </div>
+                        </div>
+
+                        <div class="filter-group">
+                            <label for="letterTypeFilter">نوع الخطاب</label>
+                            <select id="letterTypeFilter">
+                                <option value="">جميع الأنواع</option>
+                                <option value="جديد">جديد</option>
+                                <option value="رد">رد</option>
+                                <option value="متابعة">متابعة</option>
+                                <option value="تعاون">تعاون</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="records-table-container">
+                    <div class="table-header">
+                        <h3><i class="fas fa-list"></i> قائمة الخطابات</h3>
+                        <button class="btn btn-primary" id="refreshBtn">
+                            <i class="fas fa-sync-alt"></i>
+                            تحديث
+                        </button>
+                    </div>
+
+                    <div class="table-wrapper">
+                        <table class="records-table" id="recordsTable">
+                            <thead>
+                                <tr>
+                                    <th>الرقم المرجعي</th>
+                                    <th>التاريخ</th>
+                                    <th>نوع الخطاب</th>
+                                    <th>المستلم</th>
+                                    <th>الموضوع</th>
+                                    <th>الإجراءات</th>
+                                </tr>
+                            </thead>
+                            <tbody id="recordsTableBody">
+                                <!-- سيتم ملء البيانات ديناميكياً -->
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="no-records" id="noRecords" style="display: none;">
+                        <i class="fas fa-inbox"></i>
+                        <p>لا توجد خطابات مطابقة للبحث</p>
+                    </div>
+
+                    <div class="loading-records" id="loadingRecords">
+                        <i class="fas fa-spinner fa-spin"></i>
+                        <p>جاري تحميل السجلات...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Modal for actions -->
+    <div class="modal" id="actionModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="modalTitle">تأكيد العملية</h3>
+                <span class="close">&times;</span>
+            </div>
+            <div class="modal-body">
+                <p id="modalMessage">هل أنت متأكد من هذا الإجراء؟</p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-danger" id="confirmBtn">تأكيد</button>
+                <button class="btn btn-secondary" id="cancelBtn">إلغاء</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/main.js"></script>
+    <script src="js/sheets.js"></script>
+</body>
+</html>

@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>إنشاء خطاب جديد - مولد الخطابات بالذكاء الاصطناعي</title>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+    <header class="header">
+        <nav class="navbar">
+            <div class="nav-container">
+                <div class="logo">
+                    <img src="https://media.licdn.com/dms/image/v2/D4D0BAQF4bJhChNDPpw/company-logo_200_200/company-logo_200_200/0/1693724328555/nabatik_logo?e=2147483647&v=beta&t=DJcoQIeXKhJyJWGQvph4ciSFpaJC2wHU6PjYqpWxvOY" alt="شعار الشركة" class="logo-img">
+                    <h1>مولد الخطابات بالذكاء الاصطناعي</h1>
+                </div>
+                <ul class="nav-menu">
+                    <li><a href="index.html" class="nav-link">الرئيسية</a></li>
+                    <li><a href="create-letter.html" class="nav-link active">إنشاء خطاب جديد</a></li>
+                    <li><a href="letter-records.html" class="nav-link">سجل الخطابات</a></li>
+                    <li><a href="review-letter.html" class="nav-link">مراجعة خطاب</a></li>
+                </ul>
+            </div>
+        </nav>
+    </header>
+
+    <main class="main-content">
+        <div class="container">
+            <div class="page-header">
+                <h2><i class="fas fa-plus-circle"></i> إنشاء خطاب جديد</h2>
+            </div>
+
+            <div class="form-container">
+                <section class="letter-data-section">
+                    <h3><i class="fas fa-clipboard"></i> بيانات الخطاب</h3>
+                    <form id="letterForm" class="letter-form">
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label for="letterType">نوع الخطاب *</label>
+                                <select id="letterType" required>
+                                    <option value="">اختر نوع الخطاب</option>
+                                    <option value="جديد">جديد</option>
+                                    <option value="رد">رد</option>
+                                    <option value="متابعة">متابعة</option>
+                                    <option value="تعاون">تعاون</option>
+                                </select>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="letterCategory">فئة الخطاب *</label>
+                                <select id="letterCategory" required>
+                                    <option value="">اختر فئة الخطاب</option>
+                                    <option value="طلب">طلب</option>
+                                    <option value="جدولة اجتماع">جدولة اجتماع</option>
+                                    <option value="تهنئة">تهنئة</option>
+                                    <option value="دعوة حضور">دعوة حضور</option>
+                                </select>
+                            </div>
+
+                            <div class="form-group full-width">
+                                <label for="letterPurpose">الغرض من الخطاب *</label>
+                                <select id="letterPurpose" required>
+                                    <option value="">اختر الغرض من الخطاب</option>
+                                    <option value="موافقة إقامة فعالية">موافقة إقامة فعالية</option>
+                                    <option value="استثمار وتشغيل مشتل">استثمار وتشغيل مشتل</option>
+                                    <option value="تسهيل إجراءات مشروع">تسهيل إجراءات مشروع</option>
+                                    <option value="تهنئة عيد فطر">تهنئة عيد فطر</option>
+                                    <option value="دعوة خاصة لحضور حفل تدشين مبادرة الخبر خضراء ذكية">دعوة خاصة لحضور حفل تدشين مبادرة الخبر خضراء ذكية</option>
+                                    <option value="دعم صيانة بئر مطار الملك فهد">دعم صيانة بئر مطار الملك فهد</option>
+                                    <option value="تهنئة على نجاح مؤتمر وشكر على دعم">تهنئة على نجاح مؤتمر وشكر على دعم</option>
+                                    <option value="بحث سبل التعاون">بحث سبل التعاون</option>
+                                </select>
+                            </div>
+
+                            <div class="form-group full-width">
+                                <label>هل هذه أول مراسلة؟ *</label>
+                                <div class="radio-group">
+                                    <label class="radio-label">
+                                        <input type="radio" name="firstCorrespondence" value="نعم" required>
+                                        <span class="radio-custom"></span>
+                                        نعم
+                                    </label>
+                                    <label class="radio-label">
+                                        <input type="radio" name="firstCorrespondence" value="لا" required>
+                                        <span class="radio-custom"></span>
+                                        لا
+                                    </label>
+                                </div>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="recipient">المرسل إليه *</label>
+                                <input type="text" id="recipient" required placeholder="اسم المرسل إليه">
+                            </div>
+
+                            <div class="form-group">
+                                <label for="subject">عنوان الخطاب *</label>
+                                <input type="text" id="subject" required placeholder="عنوان الخطاب">
+                            </div>
+
+                            <div class="form-group full-width">
+                                <label for="content">محتوى الخطاب *</label>
+                                <textarea id="content" required placeholder="اكتب محتوى الخطاب هنا..." rows="6"></textarea>
+                            </div>
+                        </div>
+
+                        <div class="form-actions">
+                            <button type="submit" class="btn btn-primary" id="generateBtn">
+                                <i class="fas fa-magic"></i>
+                                إنشاء الخطاب
+                            </button>
+                        </div>
+                    </form>
+                </section>
+
+                <section class="letter-preview-section" id="previewSection" style="display: none;">
+                    <h3><i class="fas fa-eye"></i> معاينة الخطاب</h3>
+                    <div class="preview-container">
+                        <div class="form-group">
+                            <label for="generatedLetter">الخطاب المولد</label>
+                            <textarea id="generatedLetter" rows="15" placeholder="سيظهر الخطاب المولد هنا..."></textarea>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="template">اختيار القالب</label>
+                            <select id="template">
+                                <option value="">اختر قالب</option>
+                                <option value="رسمي">رسمي</option>
+                                <option value="شبه رسمي">شبه رسمي</option>
+                                <option value="ودي">ودي</option>
+                            </select>
+                        </div>
+
+                        <div class="preview-actions">
+                            <button type="button" class="btn btn-success" id="saveAndProceedBtn">
+                                <i class="fas fa-save"></i>
+                                حفظ ومتابعة
+                            </button>
+                            <button type="button" class="btn btn-info" id="exportBtn" style="display: none;">
+                                <i class="fas fa-download"></i>
+                                تحميل PDF
+                            </button>
+                        </div>
+                    </div>
+                </section>
+            </div>
+        </div>
+    </main>
+
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="loading-spinner">
+            <i class="fas fa-spinner fa-spin"></i>
+            <p>جاري إنشاء الخطاب...</p>
+        </div>
+    </div>
+
+    <script src="js/main.js"></script>
+    <script src="js/sheets.js"></script>
+    <script src="js/api.js"></script>
+</body>
+</html>
