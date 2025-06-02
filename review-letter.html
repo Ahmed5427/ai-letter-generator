@@ -22,6 +22,16 @@
                     <li><a href="letter-records.html" class="nav-link">سجل الخطابات</a></li>
                     <li><a href="review-letter.html" class="nav-link active">مراجعة خطاب</a></li>
                 </ul>
+                <div class="nav-controls">
+        <button class="theme-toggle" id="themeToggle" title="تغيير المظهر">
+            <i class="fas fa-moon" id="themeIcon"></i>
+        </button>
+        <div class="hamburger">
+            <span></span>
+            <span></span>
+            <span></span>
+        </div>
+            </div>
             </div>
         </nav>
     </header>
@@ -30,6 +40,7 @@
         <div class="container">
             <div class="page-header">
                 <h2><i class="fas fa-search"></i> مراجعة خطاب</h2>
+                <p id="letterIdDisplay" class="letter-id-display"></p>
             </div>
 
             <div class="review-container">
@@ -45,6 +56,11 @@
                     </div>
 
                     <div class="form-group">
+                        <label for="reviewNotes">الملاحظات</label>
+                        <textarea id="reviewNotes" rows="5" placeholder="أضف ملاحظاتك هنا..."></textarea>
+                    </div>
+
+                    <div class="form-group">
                         <label class="checkbox-label">
                             <input type="checkbox" id="reviewCompleted">
                             <span class="checkbox-custom"></span>
@@ -53,13 +69,21 @@
                     </div>
 
                     <div class="form-actions">
+                        <button type="button" class="btn btn-success" id="approveBtn">
+                            <i class="fas fa-check"></i>
+                            تمت المراجعة
+                        </button>
+                        <button type="button" class="btn btn-warning" id="needsImprovementBtn">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            يحتاج إلى تحسينات
+                        </button>
                         <button type="submit" class="btn btn-primary" id="proceedBtn" disabled>
                             <i class="fas fa-arrow-left"></i>
                             متابعة
                         </button>
-                        <a href="index.html" class="btn btn-secondary">
-                            <i class="fas fa-home"></i>
-                            العودة للرئيسية
+                        <a href="letter-records.html" class="btn btn-secondary">
+                            <i class="fas fa-arrow-right"></i>
+                            العودة للسجلات
                         </a>
                     </div>
                 </form>
@@ -68,5 +92,6 @@
     </main>
 
     <script src="js/main.js"></script>
+    <script src="js/sheets.js"></script>
 </body>
 </html>
