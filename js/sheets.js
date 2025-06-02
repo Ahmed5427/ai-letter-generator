@@ -93,11 +93,11 @@ async function saveToGoogleSheets(letterData) {
     }
 }
 
-// Get Letter Records from Submissions Sheet
+// Get Letter Records from Submissions Sheet (UPDATED)
 async function getLetterRecordsAPI() {
     try {
         const response = await fetch(
-            `${SHEETS_BASE_URL}/values/Submissions!A:J?key=${SHEETS_API_KEY}`
+            `${SHEETS_BASE_URL}/values/Submissions!A:L?key=${SHEETS_API_KEY}`
         );
         
         if (!response.ok) {
@@ -122,7 +122,10 @@ async function getLetterRecordsAPI() {
             content: row[6] || '',
             category: row[7] || '',
             purpose: row[8] || '',
-            firstCorrespondence: row[9] || ''
+            firstCorrespondence: row[9] || '',
+            reviewStatus: row[10] || 'في الانتظار', // Column J
+            sendStatus: row[11] || 'في الانتظار',   // Column K
+            pdfUrl: row[12] || ''                   // Column L
         }));
         
         return records.reverse(); // Show newest first
