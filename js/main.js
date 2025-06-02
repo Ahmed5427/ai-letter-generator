@@ -342,6 +342,7 @@ async function loadLetterRecords() {
 }
 
 // Display Records
+// Display Records (Updated with proper button layout)
 function displayRecords(records) {
     const recordsTableBody = document.getElementById('recordsTableBody');
     const noRecords = document.getElementById('noRecords');
@@ -361,23 +362,50 @@ function displayRecords(records) {
             <td>${record.id || 'غير محدد'}</td>
             <td>${record.date || 'غير محدد'}</td>
             <td>${translateLetterType(record.type) || 'غير محدد'}</td>
-            <td>${record.recipient || 'غير محدد'}</td>
             <td>${record.subject || 'غير محدد'}</td>
+            <td>${createSendStatusBadge(record.sendStatus)}</td>
+            <td>${record.recipient || 'غير محدد'}</td>
+            <td>${createReviewStatusBadge(record.reviewStatus)}</td>
             <td>
                 <div class="action-buttons">
-                    <button class="action-btn delete" onclick="handleDeleteRecord('${record.id}')">
-                        <i class="fas fa-trash"></i> حذف
+                    <button class="action-btn review" onclick="handleReviewRecord('${record.id}')" title="مراجعة">
+                        <i class="fas fa-eye"></i>
+                        <span class="btn-text">مراجعة</span>
                     </button>
-                    <button class="action-btn print" onclick="handlePrintRecord('${record.id}')">
-                        <i class="fas fa-print"></i> طباعة
+                    <button class="action-btn download" onclick="handleDownloadRecord('${record.id}', '${record.pdfUrl || ''}')" title="تحميل">
+                        <i class="fas fa-download"></i>
+                        <span class="btn-text">تحميل</span>
                     </button>
-                    <button class="action-btn download" onclick="handleDownloadRecord('${record.id}')">
-                        <i class="fas fa-download"></i> تحميل
+                    <button class="action-btn print" onclick="handlePrintRecord('${record.id}')" title="طباعة">
+                        <i class="fas fa-print"></i>
+                        <span class="btn-text">طباعة</span>
+                    </button>
+                    <button class="action-btn delete" onclick="handleDeleteRecord('${record.id}')" title="حذف">
+                        <i class="fas fa-trash"></i>
+                        <span class="btn-text">حذف</span>
                     </button>
                 </div>
             </td>
         </tr>
     `).join('');
+}
+
+// Handle Review Record (NEW FUNCTION)
+function handleReviewRecord(recordId) {
+    // Navigate to review page with the record ID
+    window.location.href = `review-letter.html?id=${recordId}`;
+}
+
+// Handle Download Record (UPDATED)
+function handleDownloadRecord(recordId, pdfUrl) {
+    if (pdfUrl && pdfUrl !== '') {
+        // Direct download from URL stored in column L
+        window.open(pdfUrl, '_blank');
+    } else {
+        // Fallback to API download
+        const downloadUrl = `${API_BASE_URL}/download-pdf/${recordId}`;
+        window.open(downloadUrl, '_blank');
+    }
 }
 
 // Translate Letter Type
@@ -573,8 +601,17 @@ function showAlert(message, type = 'info') {
     
     const alertElement = document.createElement('div');
     alertElement.className = `alert alert-${type}`;
+    
+    // Get current theme for appropriate colors
+    const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+    const colors = {
+        success: isDark ? '#2E7D32' : '#4CAF50',
+        error: isDark ? '#D32F2F' : '#f44336',
+        info: isDark ? '#1976D2' : '#2196F3'
+    };
+    
     alertElement.style.cssText = `
-        background-color: ${type === 'success' ? '#4CAF50' : type === 'error' ? '#f44336' : '#2196F3'};
+        background-color: ${colors[type] || colors.info};
         color: white;
         padding: 15px 20px;
         border-radius: 8px;
@@ -695,3 +732,246 @@ window.addEventListener('popstate', function(event) {
 window.handleDeleteRecord = handleDeleteRecord;
 window.handlePrintRecord = handlePrintRecord;
 window.handleDownloadRecord = handleDownloadRecord;
+
+// Add these functions to js/main.js
+
+// Create Send Status Badge (COMPLETED)
+function createSendStatusBadge(status) {
+    if (!status) status = 'في الانتظار';
+    
+    let badgeClass = '';
+    switch(status) {
+        case 'تم الإرسال':
+            badgeClass = 'send-completed';
+            break;
+        default:
+            badgeClass = 'send-pending';
+            status = 'في الانتظار';
+    }
+    
+    return `<span class="status-badge ${badgeClass}">${status}</span>`;
+}
+
+// Create Review Status Badge (COMPLETED)
+function createReviewStatusBadge(status) {
+    if (!status) status = 'في الانتظار';
+    
+    let badgeClass = '';
+    switch(status) {
+        case 'تمت المراجعة':
+            badgeClass = 'review-completed';
+            break;
+        case 'يحتاج إلى تحسينات':
+            badgeClass = 'review-needs-improvement';
+            break;
+        default:
+            badgeClass = 'review-pending';
+            status = 'في الانتظار';
+    }
+    
+    return `<span class="status-badge ${badgeClass}">${status}</span>`;
+}
+
+// Handle Filter Change (UPDATED)
+function handleFilterChange() {
+    const searchTerm = document.getElementById('searchInput')?.value.toLowerCase();
+    const filterType = document.getElementById('letterTypeFilter')?.value;
+    const reviewStatusFilter = document.getElementById('reviewStatusFilter')?.value;
+    const sendStatusFilter = document.getElementById('sendStatusFilter')?.value;
+    filterRecords(searchTerm, filterType, reviewStatusFilter, sendStatusFilter);
+}
+
+// Filter Records (UPDATED)
+function filterRecords(searchTerm, filterType, reviewStatus, sendStatus) {
+    const rows = document.querySelectorAll('#recordsTableBody tr');
+    let visibleCount = 0;
+    
+    rows.forEach(row => {
+        const cells = row.querySelectorAll('td');
+        const id = cells[0]?.textContent.toLowerCase() || '';
+        const type = cells[2]?.textContent || '';
+        const recipient = cells[5]?.textContent.toLowerCase() || '';
+        const currentReviewStatus = cells[6]?.textContent.trim() || '';
+        const currentSendStatus = cells[4]?.textContent.trim() || '';
+        
+        const matchesSearch = !searchTerm || id.includes(searchTerm) || recipient.includes(searchTerm);
+        const matchesType = !filterType || type === filterType;
+        const matchesReviewStatus = !reviewStatus || currentReviewStatus === reviewStatus;
+        const matchesSendStatus = !sendStatus || currentSendStatus === sendStatus;
+        
+        if (matchesSearch && matchesType && matchesReviewStatus && matchesSendStatus) {
+            row.style.display = '';
+            visibleCount++;
+        } else {
+            row.style.display = 'none';
+        }
+    });
+    
+    const noRecords = document.getElementById('noRecords');
+    if (noRecords) {
+        noRecords.style.display = visibleCount === 0 ? 'block' : 'none';
+    }
+}
+
+// Export the new function for global access
+window.handleReviewRecord = handleReviewRecord;
+
+// Theme Management
+class ThemeManager {
+    constructor() {
+        this.currentTheme = localStorage.getItem('theme') || 'light';
+        this.themeToggle = null;
+        this.themeIcon = null;
+        this.init();
+    }
+
+    init() {
+        // Apply saved theme
+        this.applyTheme(this.currentTheme);
+        
+        // Initialize theme toggle button
+        this.initThemeToggle();
+    }
+
+    initThemeToggle() {
+        this.themeToggle = document.getElementById('themeToggle');
+        this.themeIcon = document.getElementById('themeIcon');
+        
+        if (this.themeToggle) {
+            this.themeToggle.addEventListener('click', () => this.toggleTheme());
+            this.updateThemeIcon();
+        }
+    }
+
+    toggleTheme() {
+        this.currentTheme = this.currentTheme === 'light' ? 'dark' : 'light';
+        this.applyTheme(this.currentTheme);
+        this.updateThemeIcon();
+        
+        // Save to localStorage
+        localStorage.setItem('theme', this.currentTheme);
+        
+        // Add animation effect
+        this.animateToggle();
+    }
+
+    applyTheme(theme) {
+        document.documentElement.setAttribute('data-theme', theme);
+        this.currentTheme = theme;
+    }
+
+    updateThemeIcon() {
+        if (this.themeIcon) {
+            if (this.currentTheme === 'dark') {
+                this.themeIcon.className = 'fas fa-sun';
+                this.themeToggle.title = 'تغيير إلى المظهر الفاتح';
+            } else {
+                this.themeIcon.className = 'fas fa-moon';
+                this.themeToggle.title = 'تغيير إلى المظهر الداكن';
+            }
+        }
+    }
+
+    animateToggle() {
+        if (this.themeToggle) {
+            this.themeToggle.style.transform = 'scale(0.8)';
+            setTimeout(() => {
+                this.themeToggle.style.transform = 'scale(1)';
+            }, 150);
+        }
+    }
+
+    getCurrentTheme() {
+        return this.currentTheme;
+    }
+}
+
+// Initialize theme manager
+let themeManager;
+
+// Update the initializeApp function
+function initializeApp() {
+    // Initialize theme manager first
+    themeManager = new ThemeManager();
+    
+    // Mobile menu toggle
+    const hamburger = document.querySelector('.hamburger');
+    const navMenu = document.querySelector('.nav-menu');
+    
+    if (hamburger && navMenu) {
+        hamburger.addEventListener('click', function() {
+            hamburger.classList.toggle('active');
+            navMenu.classList.toggle('active');
+        });
+    }
+
+    // Close mobile menu when clicking on links
+    const navLinks = document.querySelectorAll('.nav-link');
+    navLinks.forEach(link => {
+        link.addEventListener('click', () => {
+            hamburger?.classList.remove('active');
+            navMenu?.classList.remove('active');
+        });
+    });
+
+    // Initialize page-specific functionality
+    const currentPage = getCurrentPage();
+    
+    switch(currentPage) {
+        case 'create-letter':
+            initializeCreateLetter();
+            break;
+        case 'review-letter':
+            initializeReviewLetter();
+            break;
+        case 'letter-records':
+            initializeLetterRecords();
+            break;
+        default:
+            initializeHomePage();
+    }
+}
+
+// Add theme preference detection
+function detectSystemTheme() {
+    if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+        return 'dark';
+    }
+    return 'light';
+}
+
+// Listen for system theme changes
+if (window.matchMedia) {
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function(e) {
+        if (!localStorage.getItem('theme')) {
+            // Only auto-switch if user hasn't manually set a preference
+            const newTheme = e.matches ? 'dark' : 'light';
+            if (themeManager) {
+                themeManager.applyTheme(newTheme);
+                themeManager.updateThemeIcon();
+            }
+        }
+    });
+}
+
+// Add smooth transition when switching themes
+function addThemeTransition() {
+    const style = document.createElement('style');
+    style.textContent = `
+        * {
+            transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease !important;
+        }
+    `;
+    document.head.appendChild(style);
+    
+    // Remove transition after animation completes
+    setTimeout(() => {
+        document.head.removeChild(style);
+    }, 300);
+}
+
+// Update all existing initialization calls
+document.addEventListener('DOMContentLoaded', function() {
+    addThemeTransition();
+    initializeApp();
+});
