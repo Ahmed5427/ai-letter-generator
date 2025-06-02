@@ -18,10 +18,20 @@
                 </div>
                 <ul class="nav-menu">
                     <li><a href="index.html" class="nav-link">الرئيسية</a></li>
-                                        <li><a href="create-letter.html" class="nav-link">إنشاء خطاب جديد</a></li>
+                    <li><a href="create-letter.html" class="nav-link">إنشاء خطاب جديد</a></li>
                     <li><a href="letter-records.html" class="nav-link active">سجل الخطابات</a></li>
                     <li><a href="review-letter.html" class="nav-link">مراجعة خطاب</a></li>
                 </ul>
+                <div class="nav-controls">
+        <button class="theme-toggle" id="themeToggle" title="تغيير المظهر">
+            <i class="fas fa-moon" id="themeIcon"></i>
+        </button>
+        <div class="hamburger">
+            <span></span>
+            <span></span>
+            <span></span>
+        </div>
+            </div>
             </div>
         </nav>
     </header>
@@ -53,6 +63,25 @@
                                 <option value="تعاون">تعاون</option>
                             </select>
                         </div>
+
+                        <div class="filter-group">
+                            <label for="reviewStatusFilter">حالة المراجعة</label>
+                            <select id="reviewStatusFilter">
+                                <option value="">جميع الحالات</option>
+                                <option value="تمت المراجعة">تمت المراجعة</option>
+                                <option value="في الانتظار">في الانتظار</option>
+                                <option value="يحتاج إلى تحسينات">يحتاج إلى تحسينات</option>
+                            </select>
+                        </div>
+
+                        <div class="filter-group">
+                            <label for="sendStatusFilter">حالة الإرسال</label>
+                            <select id="sendStatusFilter">
+                                <option value="">جميع الحالات</option>
+                                <option value="تم الإرسال">تم الإرسال</option>
+                                <option value="في الانتظار">في الانتظار</option>
+                            </select>
+                        </div>
                     </div>
                 </div>
 
@@ -72,8 +101,10 @@
                                     <th>الرقم المرجعي</th>
                                     <th>التاريخ</th>
                                     <th>نوع الخطاب</th>
-                                    <th>المستلم</th>
                                     <th>الموضوع</th>
+                                    <th>حالة الإرسال</th>
+                                    <th>المستلم</th>
+                                    <th>حالة المراجعة</th>
                                     <th>الإجراءات</th>
                                 </tr>
                             </thead>
