@@ -1,6 +1,7 @@
 // Global Variables
 let currentLetterId = null;
 let isGenerating = false;
+let themeManager;
 
 // DOM Content Loaded
 document.addEventListener('DOMContentLoaded', function() {
@@ -9,6 +10,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // Initialize Application
 function initializeApp() {
+    // Initialize theme manager first
+    themeManager = new ThemeManager();
+    
     // Mobile menu toggle
     const hamburger = document.querySelector('.hamburger');
     const navMenu = document.querySelector('.nav-menu');
@@ -58,7 +62,6 @@ function getCurrentPage() {
 
 // Initialize Home Page
 function initializeHomePage() {
-    // Add any home page specific functionality here
     console.log('Home page initialized');
 }
 
@@ -227,11 +230,21 @@ function initializeReviewLetter() {
     const reviewForm = document.getElementById('reviewForm');
     const reviewCompleted = document.getElementById('reviewCompleted');
     const proceedBtn = document.getElementById('proceedBtn');
+    const approveBtn = document.getElementById('approveBtn');
+    const needsImprovementBtn = document.getElementById('needsImprovementBtn');
     
     if (reviewCompleted && proceedBtn) {
         reviewCompleted.addEventListener('change', function() {
             proceedBtn.disabled = !this.checked;
         });
+    }
+    
+    if (approveBtn) {
+        approveBtn.addEventListener('click', handleApproveReview);
+    }
+    
+    if (needsImprovementBtn) {
+        needsImprovementBtn.addEventListener('click', handleNeedsImprovement);
     }
     
     if (reviewForm) {
@@ -243,20 +256,115 @@ function initializeReviewLetter() {
     const letterId = urlParams.get('id');
     if (letterId) {
         loadLetterForReview(letterId);
+        const letterIdDisplay = document.getElementById('letterIdDisplay');
+        if (letterIdDisplay) {
+            letterIdDisplay.textContent = `رقم الخطاب: ${letterId}`;
+        }
+    } else {
+        showAlert('لم يتم تمرير رقم الخطاب. يرجى العودة لصفحة السجلات واختيار خطاب للمراجعة.', 'error');
+        setTimeout(() => {
+            window.location.href = 'letter-records.html';
+        }, 3000);
     }
 }
 
 // Load Letter for Review
 async function loadLetterForReview(letterId) {
     try {
-        const letterData = await getLetterByIdAPI(letterId);
-        const textarea = document.getElementById('letterToReview');
-        if (textarea && letterData) {
-            textarea.value = letterData.content;
+        showLoadingOverlay(true);
+        
+        // Get letter data from Google Sheets
+        const records = await getLetterRecordsAPI();
+        const letterData = records.find(record => record.id === letterId);
+        
+        if (letterData) {
+            const textarea = document.getElementById('letterToReview');
+            if (textarea) {
+                textarea.value = letterData.content || 'لا يوجد محتوى متاح للخطاب';
+            }
+        } else {
+            showAlert('لم يتم العثور على الخطاب المطلوب', 'error');
+            const textarea = document.getElementById('letterToReview');
+            if (textarea) {
+                textarea.value = 'لم يتم العثور على الخطاب المطلوب.';
+            }
         }
     } catch (error) {
         console.error('Error loading letter for review:', error);
         showAlert('حدث خطأ أثناء تحميل الخطاب للمراجعة', 'error');
+        
+        // Fallback - show placeholder content
+        const textarea = document.getElementById('letterToReview');
+        if (textarea) {
+            textarea.value = 'حدث خطأ أثناء تحميل محتوى الخطاب. يرجى المحاولة مرة أخرى.';
+        }
+    } finally {
+        showLoadingOverlay(false);
+    }
+}
+
+// Handle Approve Review
+function handleApproveReview() {
+    const letterId = new URLSearchParams(window.location.search).get('id');
+    const reviewerName = document.getElementById('reviewerName')?.value;
+    const notes = document.getElementById('reviewNotes')?.value || '';
+    
+    if (!reviewerName) {
+        showAlert('يرجى إدخال اسم المراجع', 'error');
+        return;
+    }
+    
+    updateReviewStatus(letterId, 'تمت المراجعة', reviewerName, notes);
+}
+
+// Handle Needs Improvement
+function handleNeedsImprovement() {
+    const letterId = new URLSearchParams(window.location.search).get('id');
+    const reviewerName = document.getElementById('reviewerName')?.value;
+    const notes = document.getElementById('reviewNotes')?.value;
+    
+    if (!reviewerName) {
+        showAlert('يرجى إدخال اسم المراجع', 'error');
+        return;
+    }
+    
+    if (!notes || notes.trim() === '') {
+        showAlert('يرجى إضافة ملاحظات عند اختيار "يحتاج إلى تحسينات"', 'error');
+        return;
+    }
+    
+    updateReviewStatus(letterId, 'يحتاج إلى تحسينات', reviewerName, notes);
+}
+
+// Update Review Status
+async function updateReviewStatus(letterId, status, reviewerName, notes) {
+    try {
+        showLoadingOverlay(true);
+        
+        // Save review data
+        const reviewData = {
+            letterId: letterId,
+            status: status,
+            reviewer: reviewerName,
+            notes: notes,
+            reviewDate: new Date().toISOString()
+        };
+        
+        // For now, save to localStorage (in production, update Google Sheets)
+        localStorage.setItem(`review_${letterId}`, JSON.stringify(reviewData));
+        
+        showAlert(`تم تحديث حالة المراجعة إلى: ${status}`, 'success');
+        
+        // Redirect back to records page after 2 seconds
+        setTimeout(() => {
+            window.location.href = 'letter-records.html';
+        }, 2000);
+        
+    } catch (error) {
+        console.error('Error updating review status:', error);
+        showAlert('حدث خطأ أثناء تحديث حالة المراجعة', 'error');
+    } finally {
+        showLoadingOverlay(false);
     }
 }
 
@@ -277,19 +385,11 @@ function handleReviewSubmit(e) {
         return;
     }
     
-    // Save review data
-    saveReviewData({
-        reviewerName: reviewerName,
-        letterId: currentLetterId,
-        reviewDate: new Date().toISOString(),
-        reviewed: true
-    });
-    
     showAlert('تمت المراجعة بنجاح', 'success');
     
     // Redirect to home page
     setTimeout(() => {
-        window.location.href = 'index.html';
+        window.location.href = 'letter-records.html';
     }, 2000);
 }
 
@@ -297,6 +397,8 @@ function handleReviewSubmit(e) {
 function initializeLetterRecords() {
     const searchInput = document.getElementById('searchInput');
     const letterTypeFilter = document.getElementById('letterTypeFilter');
+    const reviewStatusFilter = document.getElementById('reviewStatusFilter');
+    const sendStatusFilter = document.getElementById('sendStatusFilter');
     const refreshBtn = document.getElementById('refreshBtn');
     
     if (searchInput) {
@@ -305,6 +407,14 @@ function initializeLetterRecords() {
     
     if (letterTypeFilter) {
         letterTypeFilter.addEventListener('change', handleFilterChange);
+    }
+    
+    if (reviewStatusFilter) {
+        reviewStatusFilter.addEventListener('change', handleFilterChange);
+    }
+    
+    if (sendStatusFilter) {
+        sendStatusFilter.addEventListener('change', handleFilterChange);
     }
     
     if (refreshBtn) {
@@ -342,7 +452,6 @@ async function loadLetterRecords() {
 }
 
 // Display Records
-// Display Records (Updated with proper button layout)
 function displayRecords(records) {
     const recordsTableBody = document.getElementById('recordsTableBody');
     const noRecords = document.getElementById('noRecords');
@@ -366,7 +475,7 @@ function displayRecords(records) {
             <td>${createSendStatusBadge(record.sendStatus)}</td>
             <td>${record.recipient || 'غير محدد'}</td>
             <td>${createReviewStatusBadge(record.reviewStatus)}</td>
-            <td>
+                        <td>
                 <div class="action-buttons">
                     <button class="action-btn review" onclick="handleReviewRecord('${record.id}')" title="مراجعة">
                         <i class="fas fa-eye"></i>
@@ -390,22 +499,41 @@ function displayRecords(records) {
     `).join('');
 }
 
-// Handle Review Record (NEW FUNCTION)
-function handleReviewRecord(recordId) {
-    // Navigate to review page with the record ID
-    window.location.href = `review-letter.html?id=${recordId}`;
+// Create Review Status Badge
+function createReviewStatusBadge(status) {
+    if (!status) status = 'في الانتظار';
+    
+    let badgeClass = '';
+    switch(status) {
+        case 'تمت المراجعة':
+            badgeClass = 'review-completed';
+            break;
+        case 'يحتاج إلى تحسينات':
+            badgeClass = 'review-needs-improvement';
+            break;
+        default:
+            badgeClass = 'review-pending';
+            status = 'في الانتظار';
+    }
+    
+    return `<span class="status-badge ${badgeClass}">${status}</span>`;
 }
 
-// Handle Download Record (UPDATED)
-function handleDownloadRecord(recordId, pdfUrl) {
-    if (pdfUrl && pdfUrl !== '') {
-        // Direct download from URL stored in column L
-        window.open(pdfUrl, '_blank');
-    } else {
-        // Fallback to API download
-        const downloadUrl = `${API_BASE_URL}/download-pdf/${recordId}`;
-        window.open(downloadUrl, '_blank');
+// Create Send Status Badge
+function createSendStatusBadge(status) {
+    if (!status) status = 'في الانتظار';
+    
+    let badgeClass = '';
+    switch(status) {
+        case 'تم الإرسال':
+            badgeClass = 'send-completed';
+            break;
+        default:
+            badgeClass = 'send-pending';
+            status = 'في الانتظار';
     }
+    
+    return `<span class="status-badge ${badgeClass}">${status}</span>`;
 }
 
 // Translate Letter Type
@@ -427,31 +555,39 @@ function translateLetterType(type) {
 function handleSearch() {
     const searchTerm = document.getElementById('searchInput')?.value.toLowerCase();
     const filterType = document.getElementById('letterTypeFilter')?.value;
-    filterRecords(searchTerm, filterType);
+    const reviewStatusFilter = document.getElementById('reviewStatusFilter')?.value;
+    const sendStatusFilter = document.getElementById('sendStatusFilter')?.value;
+    filterRecords(searchTerm, filterType, reviewStatusFilter, sendStatusFilter);
 }
 
 // Handle Filter Change
 function handleFilterChange() {
     const searchTerm = document.getElementById('searchInput')?.value.toLowerCase();
     const filterType = document.getElementById('letterTypeFilter')?.value;
-    filterRecords(searchTerm, filterType);
+    const reviewStatusFilter = document.getElementById('reviewStatusFilter')?.value;
+    const sendStatusFilter = document.getElementById('sendStatusFilter')?.value;
+    filterRecords(searchTerm, filterType, reviewStatusFilter, sendStatusFilter);
 }
 
 // Filter Records
-function filterRecords(searchTerm, filterType) {
+function filterRecords(searchTerm, filterType, reviewStatus, sendStatus) {
     const rows = document.querySelectorAll('#recordsTableBody tr');
     let visibleCount = 0;
     
     rows.forEach(row => {
         const cells = row.querySelectorAll('td');
         const id = cells[0]?.textContent.toLowerCase() || '';
-        const recipient = cells[3]?.textContent.toLowerCase() || '';
         const type = cells[2]?.textContent || '';
+        const recipient = cells[5]?.textContent.toLowerCase() || '';
+        const currentReviewStatus = cells[6]?.textContent.trim() || '';
+        const currentSendStatus = cells[4]?.textContent.trim() || '';
         
         const matchesSearch = !searchTerm || id.includes(searchTerm) || recipient.includes(searchTerm);
-        const matchesFilter = !filterType || type === filterType;
+        const matchesType = !filterType || type === filterType;
+        const matchesReviewStatus = !reviewStatus || currentReviewStatus === reviewStatus;
+        const matchesSendStatus = !sendStatus || currentSendStatus === sendStatus;
         
-        if (matchesSearch && matchesFilter) {
+        if (matchesSearch && matchesType && matchesReviewStatus && matchesSendStatus) {
             row.style.display = '';
             visibleCount++;
         } else {
@@ -466,6 +602,16 @@ function filterRecords(searchTerm, filterType) {
 }
 
 // Record Action Handlers
+function handleReviewRecord(recordId) {
+    if (!recordId || recordId === 'undefined') {
+        showAlert('خطأ: لم يتم العثور على رقم الخطاب', 'error');
+        return;
+    }
+    
+    // Navigate to review page with the record ID
+    window.location.href = `review-letter.html?id=${encodeURIComponent(recordId)}`;
+}
+
 function handleDeleteRecord(recordId) {
     showConfirmModal(
         'تأكيد الحذف',
@@ -478,17 +624,51 @@ function handlePrintRecord(recordId) {
     printRecord(recordId);
 }
 
-function handleDownloadRecord(recordId) {
-    downloadRecord(recordId);
+function handleDownloadRecord(recordId, pdfUrl) {
+    if (pdfUrl && pdfUrl !== '') {
+        // Direct download from URL stored in column L
+        window.open(pdfUrl, '_blank');
+    } else {
+        // Fallback to API download
+        const downloadUrl = `${API_BASE_URL}/download-pdf/${recordId}`;
+        window.open(downloadUrl, '_blank');
+    }
 }
 
 // Delete Record
 async function deleteRecord(recordId) {
     try {
         showLoadingOverlay(true);
-        await deleteRecordAPI(recordId);
+        
+        // For demo purposes, we'll remove from localStorage and UI
+        // In production, you'd call deleteRecordFromSheetsAPI(recordId)
+        
+        // Remove from any local storage
+        localStorage.removeItem(`review_${recordId}`);
+        
+        // Simulate API call delay
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
         showAlert('تم حذف الخطاب بنجاح', 'success');
-        loadLetterRecords(); // Reload records
+        
+        // Remove the row from the table
+        const rows = document.querySelectorAll('#recordsTableBody tr');
+        rows.forEach(row => {
+            const firstCell = row.querySelector('td');
+            if (firstCell && firstCell.textContent.trim() === recordId) {
+                row.remove();
+            }
+        });
+        
+        // Check if table is empty
+        const remainingRows = document.querySelectorAll('#recordsTableBody tr');
+        if (remainingRows.length === 0) {
+            const noRecords = document.getElementById('noRecords');
+            if (noRecords) {
+                noRecords.style.display = 'block';
+            }
+        }
+        
     } catch (error) {
         console.error('Error deleting record:', error);
         showAlert('حدث خطأ أثناء حذف الخطاب', 'error');
@@ -501,12 +681,6 @@ async function deleteRecord(recordId) {
 function printRecord(recordId) {
     const printUrl = `${API_BASE_URL}/print/${recordId}`;
     window.open(printUrl, '_blank');
-}
-
-// Download Record
-function downloadRecord(recordId) {
-    const downloadUrl = `${API_BASE_URL}/download-pdf/${recordId}`;
-    window.open(downloadUrl, '_blank');
 }
 
 // Modal Functions
@@ -720,106 +894,10 @@ function saveReviewData(reviewData) {
     }
 }
 
-// Initialize on page load
-document.addEventListener('DOMContentLoaded', initializeApp);
-
-// Handle page navigation
-window.addEventListener('popstate', function(event) {
-    initializeApp();
-});
-
-// Export functions for global access
-window.handleDeleteRecord = handleDeleteRecord;
-window.handlePrintRecord = handlePrintRecord;
-window.handleDownloadRecord = handleDownloadRecord;
-
-// Add these functions to js/main.js
-
-// Create Send Status Badge (COMPLETED)
-function createSendStatusBadge(status) {
-    if (!status) status = 'في الانتظار';
-    
-    let badgeClass = '';
-    switch(status) {
-        case 'تم الإرسال':
-            badgeClass = 'send-completed';
-            break;
-        default:
-            badgeClass = 'send-pending';
-            status = 'في الانتظار';
-    }
-    
-    return `<span class="status-badge ${badgeClass}">${status}</span>`;
-}
-
-// Create Review Status Badge (COMPLETED)
-function createReviewStatusBadge(status) {
-    if (!status) status = 'في الانتظار';
-    
-    let badgeClass = '';
-    switch(status) {
-        case 'تمت المراجعة':
-            badgeClass = 'review-completed';
-            break;
-        case 'يحتاج إلى تحسينات':
-            badgeClass = 'review-needs-improvement';
-            break;
-        default:
-            badgeClass = 'review-pending';
-            status = 'في الانتظار';
-    }
-    
-    return `<span class="status-badge ${badgeClass}">${status}</span>`;
-}
-
-// Handle Filter Change (UPDATED)
-function handleFilterChange() {
-    const searchTerm = document.getElementById('searchInput')?.value.toLowerCase();
-    const filterType = document.getElementById('letterTypeFilter')?.value;
-    const reviewStatusFilter = document.getElementById('reviewStatusFilter')?.value;
-    const sendStatusFilter = document.getElementById('sendStatusFilter')?.value;
-    filterRecords(searchTerm, filterType, reviewStatusFilter, sendStatusFilter);
-}
-
-// Filter Records (UPDATED)
-function filterRecords(searchTerm, filterType, reviewStatus, sendStatus) {
-    const rows = document.querySelectorAll('#recordsTableBody tr');
-    let visibleCount = 0;
-    
-    rows.forEach(row => {
-        const cells = row.querySelectorAll('td');
-        const id = cells[0]?.textContent.toLowerCase() || '';
-        const type = cells[2]?.textContent || '';
-        const recipient = cells[5]?.textContent.toLowerCase() || '';
-        const currentReviewStatus = cells[6]?.textContent.trim() || '';
-        const currentSendStatus = cells[4]?.textContent.trim() || '';
-        
-        const matchesSearch = !searchTerm || id.includes(searchTerm) || recipient.includes(searchTerm);
-        const matchesType = !filterType || type === filterType;
-        const matchesReviewStatus = !reviewStatus || currentReviewStatus === reviewStatus;
-        const matchesSendStatus = !sendStatus || currentSendStatus === sendStatus;
-        
-        if (matchesSearch && matchesType && matchesReviewStatus && matchesSendStatus) {
-            row.style.display = '';
-            visibleCount++;
-        } else {
-            row.style.display = 'none';
-        }
-    });
-    
-    const noRecords = document.getElementById('noRecords');
-    if (noRecords) {
-        noRecords.style.display = visibleCount === 0 ? 'block' : 'none';
-    }
-}
-
-// Export the new function for global access
-window.handleReviewRecord = handleReviewRecord;
-
 // Theme Management
 class ThemeManager {
     constructor() {
-        this.currentTheme = localStorage.getItem('theme') || 'light';
+        this.currentTheme = localStorage.getItem('theme') || this.detectSystemTheme();
         this.themeToggle = null;
         this.themeIcon = null;
         this.init();
@@ -831,6 +909,16 @@ class ThemeManager {
         
         // Initialize theme toggle button
         this.initThemeToggle();
+        
+        // Listen for system theme changes
+        this.listenForSystemThemeChanges();
+    }
+
+    detectSystemTheme() {
+        if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+            return 'dark';
+        }
+        return 'light';
     }
 
     initThemeToggle() {
@@ -838,8 +926,36 @@ class ThemeManager {
         this.themeIcon = document.getElementById('themeIcon');
         
         if (this.themeToggle) {
+            // Mouse click
             this.themeToggle.addEventListener('click', () => this.toggleTheme());
+            
+            // Keyboard support
+            this.themeToggle.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    this.toggleTheme();
+                }
+            });
+            
+            // Make focusable
+            this.themeToggle.setAttribute('tabindex', '0');
+            this.themeToggle.setAttribute('role', 'button');
+            this.themeToggle.setAttribute('aria-label', 'تغيير المظهر');
+            
             this.updateThemeIcon();
+        }
+    }
+
+    listenForSystemThemeChanges() {
+        if (window.matchMedia) {
+            window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
+                if (!localStorage.getItem('theme')) {
+                    // Only auto-switch if user hasn't manually set a preference
+                    const newTheme = e.matches ? 'dark' : 'light';
+                    this.applyTheme(newTheme);
+                    this.updateThemeIcon();
+                }
+            });
         }
     }
 
@@ -872,7 +988,7 @@ class ThemeManager {
         }
     }
 
-    animateToggle() {
+        animateToggle() {
         if (this.themeToggle) {
             this.themeToggle.style.transform = 'scale(0.8)';
             setTimeout(() => {
@@ -886,92 +1002,32 @@ class ThemeManager {
     }
 }
 
-// Initialize theme manager
-let themeManager;
-
-// Update the initializeApp function
-function initializeApp() {
-    // Initialize theme manager first
-    themeManager = new ThemeManager();
+// Theme Persistence and Auto-Detection
+function initializeThemeSystem() {
+    // Check if user has a saved preference
+    const savedTheme = localStorage.getItem('theme');
     
-    // Mobile menu toggle
-    const hamburger = document.querySelector('.hamburger');
-    const navMenu = document.querySelector('.nav-menu');
-    
-    if (hamburger && navMenu) {
-        hamburger.addEventListener('click', function() {
-            hamburger.classList.toggle('active');
-            navMenu.classList.toggle('active');
-        });
-    }
-
-    // Close mobile menu when clicking on links
-    const navLinks = document.querySelectorAll('.nav-link');
-    navLinks.forEach(link => {
-        link.addEventListener('click', () => {
-            hamburger?.classList.remove('active');
-            navMenu?.classList.remove('active');
-        });
-    });
-
-    // Initialize page-specific functionality
-    const currentPage = getCurrentPage();
-    
-    switch(currentPage) {
-        case 'create-letter':
-            initializeCreateLetter();
-            break;
-        case 'review-letter':
-            initializeReviewLetter();
-            break;
-        case 'letter-records':
-            initializeLetterRecords();
-            break;
-        default:
-            initializeHomePage();
+    if (savedTheme) {
+        // Use saved preference
+        document.documentElement.setAttribute('data-theme', savedTheme);
+    } else {
+        // Auto-detect system preference
+        const systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+        document.documentElement.setAttribute('data-theme', systemTheme);
+        localStorage.setItem('theme', systemTheme);
     }
 }
 
-// Add theme preference detection
-function detectSystemTheme() {
-    if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
-        return 'dark';
-    }
-    return 'light';
-}
+// Call this before DOMContentLoaded to prevent flash
+initializeThemeSystem();
 
-// Listen for system theme changes
-if (window.matchMedia) {
-    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function(e) {
-        if (!localStorage.getItem('theme')) {
-            // Only auto-switch if user hasn't manually set a preference
-            const newTheme = e.matches ? 'dark' : 'light';
-            if (themeManager) {
-                themeManager.applyTheme(newTheme);
-                themeManager.updateThemeIcon();
-            }
-        }
-    });
-}
-
-// Add smooth transition when switching themes
-function addThemeTransition() {
-    const style = document.createElement('style');
-    style.textContent = `
-        * {
-            transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease !important;
-        }
-    `;
-    document.head.appendChild(style);
-    
-    // Remove transition after animation completes
-    setTimeout(() => {
-        document.head.removeChild(style);
-    }, 300);
-}
-
-// Update all existing initialization calls
-document.addEventListener('DOMContentLoaded', function() {
-    addThemeTransition();
+// Handle page navigation
+window.addEventListener('popstate', function(event) {
     initializeApp();
 });
+
+// Export functions for global access
+window.handleDeleteRecord = handleDeleteRecord;
+window.handlePrintRecord = handlePrintRecord;
+window.handleDownloadRecord = handleDownloadRecord;
+window.handleReviewRecord = handleReviewRecord;
