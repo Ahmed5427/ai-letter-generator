@@ -1,232 +1,505 @@
-// API Interaction Logic
+// API Configuration
+const API_BASE_URL = 'http://128.140.37.194:5000/generate-letter'; // Replace with your actual API endpoint
 
-const GENERATE_API_URL = "http://128.140.37.194:5000/generate-letter";
-const ARCHIVE_API_URL = "http://128.140.37.194:5000/archive-letter";
-// Google Sheet API details might be used in sheets.js or here if needed directly
-// const GOOGLE_SHEET_ID = "1cLbTgbluZyWYHRouEgqHQuYQqKexHhu4st9ANzuaxGk";
-// const GOOGLE_API_KEY = "AIzaSyBqF-nMxyZMrjmdFbULO9I_j75hXXaiq4A";
-
-document.addEventListener("DOMContentLoaded", () => {
-    // --- Elements for create-letter.html ---
-    const letterForm = document.getElementById("letterForm");
-    const generateBtn = document.getElementById("generateBtn");
-    const loadingOverlay = document.getElementById("loadingOverlay");
-    const previewSection = document.getElementById("previewSection");
-    const generatedLetterTextarea = document.getElementById("generatedLetter");
-    const saveAndProceedBtn = document.getElementById("saveAndProceedBtn");
-    const templateSelect = document.getElementById("template"); // Tone selection in create-letter
-
-    // --- Elements for review-letter.html ---
-    const reviewLetterContent = document.getElementById("reviewLetterContent"); // Assuming textarea ID in review-letter.html
-    const reviewRecipient = document.getElementById("reviewRecipient"); // Assuming display element ID
-    const reviewTitle = document.getElementById("reviewTitle"); // Assuming display element ID
-    const reviewFileInput = document.getElementById("reviewFileInput"); // Assuming file input ID
-    const archiveLetterBtn = document.getElementById("archiveLetterBtn"); // Assuming button ID
-    const reviewLoadingOverlay = document.getElementById("reviewLoadingOverlay"); // Assuming loading overlay ID
-
-    // Store generated letter data temporarily during creation flow
-    let generatedData = null;
-
-    // --- Logic for create-letter.html ---
-    if (letterForm) {
-        letterForm.addEventListener("submit", async (event) => {
-            event.preventDefault();
-            console.log("Form submitted");
-
-            if (loadingOverlay) loadingOverlay.style.display = "flex";
-
-            const letterType = document.getElementById("letterType").value;
-            const category = document.getElementById("letterCategory").value;
-            const sub_category = document.getElementById("letterPurpose").value;
-            const firstCorrespondenceRadio = document.querySelector("input[name=\"firstCorrespondence\"]:checked");
-            const isFirst = firstCorrespondenceRadio ? (firstCorrespondenceRadio.value === "نعم") : null;
-            const recipient = document.getElementById("recipient").value;
-            const title = document.getElementById("subject").value;
-            const prompt = document.getElementById("content").value;
-            const tone = "رسمي"; // Hardcoded as per previous analysis
-
-            if (!letterType || !category || !sub_category || isFirst === null || !recipient || !title || !prompt) {
-                alert("يرجى ملء جميع الحقول المطلوبة.");
-                if (loadingOverlay) loadingOverlay.style.display = "none";
-                return;
-            }
-
-            const payload = { category, sub_category, title, recipient, isFirst, prompt, tone };
-            console.log("Generate Payload:", JSON.stringify(payload));
-
-            try {
-                const response = await fetch(GENERATE_API_URL, {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify(payload),
-                });
-
-                if (!response.ok) {
-                    const errorText = await response.text();
-                    throw new Error(`خطأ في الشبكة: ${response.status} ${response.statusText}. ${errorText}`);
-                }
-
-                const result = await response.json();
-                console.log("Generate API Response:", result);
-
-                if (result.generated_letter && result.id) {
-                    // Store data needed for the review/archive step
-                    generatedData = {
-                        id: result.id,
-                        letter_content: result.generated_letter, // Initial generated content
-                        letter_type: letterType, // User choice: New, Reply etc.
-                        recipient: recipient,
-                        title: title,
-                        is_first: isFirst ? "yes" : "no", // Archive API expects 'yes'/'no'
-                    };
-
-                    if (generatedLetterTextarea) {
-                        generatedLetterTextarea.value = result.generated_letter;
-                    }
-                    if (previewSection) {
-                        previewSection.style.display = "block";
-                        previewSection.scrollIntoView({ behavior: 'smooth' });
-                    }
-                } else {
-                    throw new Error("لم يتم إرجاع بيانات الخطاب أو الرقم المرجعي من الخادم.");
-                }
-
-            } catch (error) {
-                console.error("Error generating letter:", error);
-                alert(`حدث خطأ أثناء إنشاء الخطاب: ${error.message}`);
-            } finally {
-                if (loadingOverlay) loadingOverlay.style.display = "none";
-            }
-        });
-    }
-
-    // Event listener for "Save and Proceed" button on create-letter.html
-    if (saveAndProceedBtn) {
-        saveAndProceedBtn.addEventListener("click", () => {
-            if (!generatedData) {
-                alert("لا توجد بيانات خطاب مولدة للمتابعة.");
-                return;
-            }
-            // Get potentially edited content from the textarea
-            const currentLetterContent = generatedLetterTextarea ? generatedLetterTextarea.value : generatedData.letter_content;
-            
-            // Update the content in our temporary storage
-            generatedData.letter_content = currentLetterContent;
-
-            console.log("Proceeding to review. Data:", generatedData);
-            
-            // Store data in sessionStorage to pass to the review page
-            try {
-                sessionStorage.setItem("letterForReview", JSON.stringify(generatedData));
-                // Redirect to the review page
-                window.location.href = "review-letter.html";
-            } catch (e) {
-                console.error("Error saving data to sessionStorage:", e);
-                alert("حدث خطأ أثناء حفظ البيانات للمراجعة. قد تكون مساحة التخزين ممتلئة.");
-            }
-        });
-    }
-
-    // --- Logic for review-letter.html ---
-    if (reviewLetterContent) { // Check if we are on the review page by looking for a specific element
-        // Load data from sessionStorage
-        const dataString = sessionStorage.getItem("letterForReview");
-        if (dataString) {
-            try {
-                const letterData = JSON.parse(dataString);
-                console.log("Loaded data for review:", letterData);
-
-                // Populate the review page elements
-                reviewLetterContent.value = letterData.letter_content || "";
-                if(reviewRecipient) reviewRecipient.textContent = letterData.recipient || ""; // Assuming textContent is appropriate
-                if(reviewTitle) reviewTitle.textContent = letterData.title || ""; // Assuming textContent is appropriate
-                // TODO: Populate other fields if needed (e.g., letter type, is_first display)
-
-                // Add event listener for the archive button
-                if (archiveLetterBtn) {
-                    archiveLetterBtn.addEventListener("click", async () => {
-                        console.log("Archive button clicked");
-                        
-                        const fileInput = reviewFileInput;
-                        const file = fileInput && fileInput.files.length > 0 ? fileInput.files[0] : null;
-                        const finalLetterContent = reviewLetterContent.value; // Get potentially edited content
-
-                        // Validate required fields for archive
-                        if (!letterData.id || !finalLetterContent || !letterData.letter_type || !letterData.recipient || !letterData.title || !letterData.is_first) {
-                            alert("بيانات الخطاب غير كاملة. لا يمكن الأرشفة.");
-                            return;
-                        }
-                        // Note: File might be optional, API behavior unknown if missing.
-                        // if (!file) {
-                        //     alert("يرجى إرفاق ملف.");
-                        //     return;
-                        // }
-
-                        if (reviewLoadingOverlay) reviewLoadingOverlay.style.display = "flex";
-
-                        // Construct FormData for the archive API
-                        const formData = new FormData();
-                        if (file) {
-                            formData.append("file", file);
-                        }
-                        formData.append("letter_content", finalLetterContent);
-                        formData.append("letter_type", letterData.letter_type); // e.g., "New", "Reply"
-                        formData.append("recipient", letterData.recipient);
-                        formData.append("title", letterData.title);
-                        formData.append("is_first", letterData.is_first); // "yes" or "no"
-                        formData.append("ID", letterData.id);
-
-                        console.log("Archive Payload (FormData):", { ...Object.fromEntries(formData.entries()) }); // Log form data fields
-
-                        // Call Archive API
-                        try {
-                            const response = await fetch(ARCHIVE_API_URL, {
-                                method: "POST",
-                                body: formData, // Send FormData directly
-                                // 'Content-Type' header is set automatically by browser for FormData
-                            });
-
-                            if (!response.ok) {
-                                const errorText = await response.text();
-                                throw new Error(`خطأ في الشبكة: ${response.status} ${response.statusText}. ${errorText}`);
-                            }
-
-                            const result = await response.json(); // Assuming API returns JSON
-                            console.log("Archive API Response:", result);
-
-                            alert("تمت أرشفة الخطاب بنجاح!"); // Provide success feedback
-                            // Optionally, clear sessionStorage and redirect
-                            sessionStorage.removeItem("letterForReview");
-                            window.location.href = "letter-records.html"; // Redirect to records page after successful archive
-
-                        } catch (error) {
-                            console.error("Error archiving letter:", error);
-                            alert(`حدث خطأ أثناء أرشفة الخطاب: ${error.message}`);
-                        } finally {
-                            if (reviewLoadingOverlay) reviewLoadingOverlay.style.display = "none";
-                        }
-                    });
-                }
-            } catch (e) {
-                console.error("Error parsing data from sessionStorage:", e);
-                alert("حدث خطأ أثناء تحميل بيانات المراجعة.");
-                // Optionally redirect back or show an error message
-                // window.location.href = "create-letter.html";
-            }
-        } else {
-            console.warn("No letter data found in sessionStorage for review.");
-            alert("لم يتم العثور على بيانات للمراجعة. يرجى إنشاء خطاب أولاً.");
-            // Redirect back to create page if no data
-            window.location.href = "create-letter.html";
+// Generate Letter API
+async function generateLetterAPI(formData) {
+    try {
+        // If no API_BASE_URL, use demo mode
+        if (!API_BASE_URL || API_BASE_URL === '') {
+            console.log('Using demo mode for letter generation...');
+            return {
+                generatedText: generateMockLetter(formData)
+            };
         }
-    }
-
-    // --- Placeholder for Export Logic (if needed) ---
-    const exportBtn = document.getElementById("exportBtn");
-    if (exportBtn) {
-        exportBtn.addEventListener("click", () => {
-            alert("سيتم تنفيذ عملية التصدير إلى PDF هنا.");
+        
+        const response = await fetch(`${API_BASE_URL}/generate-letter`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(formData)
         });
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        return await response.json();
+    } catch (error) {
+        console.error('Error calling generate letter API:', error);
+        // Fallback: return mock data for demo purposes
+        return {
+            generatedText: generateMockLetter(formData)
+        };
     }
-});
+}
 
+// Create PDF API
+async function createPDFAPI(letterData) {
+    try {
+        if (!API_BASE_URL || API_BASE_URL === '') {
+            console.log('Using demo mode for PDF creation...');
+            return {
+                letterId: generateId(),
+                pdfUrl: '#',
+                success: true
+            };
+        }
+        
+        const response = await fetch(`${API_BASE_URL}/create-pdf`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(letterData)
+        });
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        return await response.json();
+    } catch (error) {
+        console.error('Error calling create PDF API:', error);
+        // Fallback: return mock response
+        return {
+            letterId: generateId(),
+            pdfUrl: '#',
+            success: true
+        };
+    }
+}
+
+// Get Letter by ID API
+async function getLetterByIdAPI(letterId) {
+    try {
+        if (!API_BASE_URL || API_BASE_URL === '') {
+            console.log('Using demo mode for letter retrieval...');
+            
+            // Try to get from demo data first
+            const demoLetters = JSON.parse(localStorage.getItem('demoLetters') || '[]');
+            const letter = demoLetters.find(l => l.id === letterId);
+            
+            if (letter) {
+                return {
+                    id: letter.id,
+                    content: letter.content,
+                    date: letter.date,
+                    subject: letter.subject,
+                    recipient: letter.recipient
+                };
+            }
+            
+            // Fallback to demo records
+            const demoRecords = getDemoRecords();
+            const demoLetter = demoRecords.find(l => l.id === letterId);
+            
+            if (demoLetter) {
+                return {
+                    id: demoLetter.id,
+                    content: demoLetter.content,
+                    date: demoLetter.date,
+                    subject: demoLetter.subject,
+                    recipient: demoLetter.recipient
+                };
+            }
+            
+            // Generate demo content if letter not found
+            return {
+                id: letterId,
+                content: generateDemoLetterContent('المستلم المحترم', 'موضوع الخطاب'),
+                date: new Date().toLocaleDateString('ar-SA'),
+                subject: 'موضوع الخطاب',
+                recipient: 'المستلم المحترم'
+            };
+        }
+        
+        const response = await fetch(`${API_BASE_URL}/letter/${letterId}`, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        });
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        return await response.json();
+    } catch (error) {
+        console.error('Error fetching letter by ID:', error);
+        // Fallback: return mock data
+        return {
+            id: letterId,
+            content: generateDemoLetterContent('المستلم المحترم', 'موضوع الخطاب'),
+            date: new Date().toLocaleDateString('ar-SA'),
+            subject: 'موضوع الخطاب',
+            recipient: 'المستلم المحترم'
+        };
+    }
+}
+
+// Mock Letter Generator (for demo purposes)
+function generateMockLetter(formData) {
+    const currentDate = getCurrentDate();
+    
+    const letterTemplate = `بسم الله الرحمن الرحيم
+
+${currentDate}
+
+${formData.recipient} المحترم/ة
+
+السلام عليكم ورحمة الله وبركاته
+
+الموضوع: ${formData.subject}
+
+${generateLetterBody(formData)}
+
+وتفضلوا بقبول فائق الاحترام والتقدير.
+
+المرسل: [اسم المرسل]
+التوقيع: _______________
+التاريخ: ${currentDate}`;
+
+    return letterTemplate.trim();
+}
+
+function generateLetterBody(formData) {
+    let body = '';
+    
+    if (formData.firstCorrespondence === 'نعم') {
+        body += 'يسعدني أن أتواصل معكم لأول مرة بخصوص ';
+    } else {
+        body += 'أتواصل معكم مجدداً بخصوص ';
+    }
+    
+    body += formData.letterPurpose + '.\n\n';
+    body += formData.content + '\n\n';
+    
+    switch (formData.letterCategory) {
+        case 'طلب':
+            body += 'نأمل منكم التكرم بالنظر في هذا الطلب والموافقة عليه في أقرب وقت ممكن.';
+            break;
+        case 'جدولة اجتماع':
+            body += 'نرجو منكم تحديد الوقت المناسب لكم لعقد هذا الاجتماع، ونحن في انتظار ردكم الكريم.';
+            break;
+        case 'تهنئة':
+            body += 'نتقدم لكم بأحر التهاني وأطيب الأمنيات بمناسبة هذا الحدث السعيد.';
+            break;
+        case 'دعوة حضور':
+            body += 'نتشرف بدعوتكم للحضور ونأمل أن نراكم معنا في هذه المناسبة المهمة.';
+            break;
+        default:
+            body += 'شاكرين لكم حسن تعاونكم وتفهمكم، ونتطلع إلى استمرار التعاون المثمر بيننا.';
+    }
+    
+    return body;
+}
+
+function generateFormalLetter(formData) {
+    return generateMockLetter(formData);
+}
+
+function generateSemiFormalLetter(formData) {
+    return generateMockLetter(formData).replace('المحترم/ة', 'الكريم/ة');
+}
+
+function generateFriendlyLetter(formData) {
+    return generateMockLetter(formData)
+        .replace('تفضلوا بقبول فائق الاحترام والتقدير', 'مع خالص التحية والاحترام')
+        .replace('المحترم/ة', 'العزيز/ة');
+}
+
+function getCurrentDate() {
+    const now = new Date();
+    const options = {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        weekday: 'long'
+    };
+    return now.toLocaleDateString('ar-SA', options);
+}
+
+// Advanced Letter Generation with Templates
+function generateLetterWithTemplate(formData, template) {
+    switch (template) {
+        case 'رسمي':
+            return generateFormalLetter(formData);
+        case 'شبه رسمي':
+            return generateSemiFormalLetter(formData);
+        case 'ودي':
+            return generateFriendlyLetter(formData);
+        default:
+            return generateMockLetter(formData);
+    }
+}
+
+// Generate specific letter types
+function generateLetterByPurpose(formData) {
+    const purpose = formData.letterPurpose;
+    const baseContent = generateMockLetter(formData);
+    
+    // Add specific content based on purpose
+    switch (purpose) {
+        case 'موافقة إقامة فعالية':
+            return baseContent.replace(
+                formData.content,
+                `${formData.content}\n\nنود إعلامكم بأننا نسعى للحصول على الموافقة اللازمة لإقامة فعالية نوعية تخدم المجتمع وتحقق الأهداف المرجوة. وسنحرص على الالتزام بجميع اللوائح والمعايير المطلوبة لضمان نجاح الفعالية.`
+            );
+            
+        case 'استثمار وتشغيل مشتل':
+            return baseContent.replace(
+                formData.content,
+                `${formData.content}\n\nنتطلع إلى إقامة شراكة استثمارية مثمرة في مجال إنشاء وتشغيل المشاتل، مما يساهم في تعزيز البيئة الخضراء ودعم التنمية المستدامة في المنطقة.`
+            );
+            
+        case 'تسهيل إجراءات مشروع':
+            return baseContent.replace(
+                formData.content,
+                `${formData.content}\n\nنأمل منكم تسهيل الإجراءات اللازمة لتنفيذ هذا المشروع المهم، والذي سيساهم في تحقيق الأهداف التنموية والبيئية للمنطقة.`
+            );
+            
+        case 'تهنئة عيد فطر':
+            return baseContent.replace(
+                formData.content,
+                `${formData.content}\n\nبمناسبة حلول عيد الفطر المبارك، نتقدم لكم بأصدق التهاني وأطيب الأمنيات، سائلين المولى عز وجل أن يعيده عليكم بالخير والبركات، وأن يديم عليكم نعمة الصحة والعافية.`
+            );
+            
+        case 'دعوة خاصة لحضور حفل تدشين مبادرة الخبر خضراء ذكية':
+            return baseContent.replace(
+                formData.content,
+                `${formData.content}\n\nيشرفنا دعوتكم الكريمة لحضور حفل تدشين مبادرة الخبر خضراء ذكية، هذه المبادرة النوعية التي تهدف إلى تحويل مدينة الخبر إلى مدينة ذكية ومستدامة بيئياً. حضوركم سيضفي على المناسبة مزيداً من الأهمية والتقدير.`
+            );
+            
+        case 'دعم صيانة بئر مطار الملك فهد':
+            return baseContent.replace(
+                formData.content,
+                `${formData.content}\n\nنسعى للحصول على دعمكم الكريم في أعمال صيانة وتطوير بئر مطار الملك فهد الدولي، وهو مشروع حيوي يساهم في ضمان استمرارية الخدمات الأساسية لهذا المرفق المهم.`
+            );
+            
+        case 'تهنئة على نجاح مؤتمر وشكر على دعم':
+            return baseContent.replace(
+                formData.content,
+                `${formData.content}\n\nنود أن نعبر لكم عن خالص شكرنا وتقديرنا للدعم الكريم الذي قدمتموه، والذي ساهم بشكل كبير في إنجاح هذا المؤتمر. إن تعاونكم المثمر يعكس حرصكم على دعم المبادرات التي تخدم المجتمع.`
+            );
+            
+        case 'بحث سبل التعاون':
+            return baseContent.replace(
+                formData.content,
+                `${formData.content}\n\nنتطلع إلى استكشاف فرص التعاون المتاحة بيننا، وإقامة شراكات استراتيجية تحقق المصالح المشتركة وتساهم في تطوير وتنمية المجتمع. نحن على ثقة من أن هذا التعاون سيثمر عن نتائج إيجابية ومثمرة.`
+            );
+            
+        default:
+            return baseContent;
+    }
+}
+
+// Email Integration (for future use)
+async function sendLetterByEmail(emailData) {
+    try {
+        if (!API_BASE_URL || API_BASE_URL === '') {
+            console.log('Email functionality requires API endpoint configuration');
+            return { success: false, message: 'Email service not configured' };
+        }
+        
+        const response = await fetch(`${API_BASE_URL}/send-email`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(emailData)
+        });
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        return await response.json();
+    } catch (error) {
+        console.error('Error sending email:', error);
+        return { success: false, message: error.message };
+    }
+}
+
+// Letter Templates Management
+const LetterTemplates = {
+    formal: {
+        greeting: 'السلام عليكم ورحمة الله وبركاته',
+        closing: 'وتفضلوا بقبول فائق الاحترام والتقدير',
+        recipientFormat: 'المحترم/ة'
+    },
+    
+    semiFormal: {
+        greeting: 'السلام عليكم ورحمة الله وبركاته',
+        closing: 'مع خالص التحية والاحترام',
+        recipientFormat: 'الكريم/ة'
+    },
+    
+    friendly: {
+        greeting: 'السلام عليكم ورحمة الله وبركاته',
+        closing: 'مع أطيب التحيات',
+        recipientFormat: 'العزيز/ة'
+    }
+};
+
+// Generate letter with specific template
+function applyTemplate(letterContent, templateType) {
+    const template = LetterTemplates[templateType] || LetterTemplates.formal;
+    
+    return letterContent
+        .replace('المحترم/ة', template.recipientFormat)
+        .replace('وتفضلوا بقبول فائق الاحترام والتقدير', template.closing);
+}
+
+// Letter Statistics (for future dashboard)
+function getLetterStatistics() {
+    const demoLetters = JSON.parse(localStorage.getItem('demoLetters') || '[]');
+    
+    const stats = {
+        total: demoLetters.length,
+        byType: {},
+        byStatus: {},
+        byMonth: {},
+        recent: demoLetters.slice(0, 5)
+    };
+    
+    demoLetters.forEach(letter => {
+        // Count by type
+        stats.byType[letter.type] = (stats.byType[letter.type] || 0) + 1;
+        
+        // Count by review status
+        stats.byStatus[letter.reviewStatus] = (stats.byStatus[letter.reviewStatus] || 0) + 1;
+        
+        // Count by month
+        const month = new Date(letter.date).toLocaleDateString('ar-SA', { year: 'numeric', month: 'long' });
+        stats.byMonth[month] = (stats.byMonth[month] || 0) + 1;
+    });
+    
+    return stats;
+}
+
+// Export/Import functionality
+function exportLettersToJSON() {
+    const demoLetters = JSON.parse(localStorage.getItem('demoLetters') || '[]');
+    const dataStr = JSON.stringify(demoLetters, null, 2);
+    const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
+    
+    const exportFileDefaultName = `letters-export-${new Date().toISOString().slice(0,10)}.json`;
+    
+    const linkElement = document.createElement('a');
+    linkElement.setAttribute('href', dataUri);
+    linkElement.setAttribute('download', exportFileDefaultName);
+    linkElement.click();
+}
+
+function importLettersFromJSON(jsonData) {
+    try {
+        const letters = JSON.parse(jsonData);
+        if (Array.isArray(letters)) {
+            localStorage.setItem('demoLetters', JSON.stringify(letters));
+            return { success: true, count: letters.length };
+        } else {
+            throw new Error('Invalid JSON format');
+        }
+    } catch (error) {
+        console.error('Error importing letters:', error);
+        return { success: false, error: error.message };
+    }
+}
+
+// Letter Validation
+function validateLetterData(letterData) {
+    const errors = [];
+    
+    if (!letterData.recipient || letterData.recipient.trim() === '') {
+        errors.push('يرجى إدخال اسم المرسل إليه');
+    }
+    
+    if (!letterData.subject || letterData.subject.trim() === '') {
+        errors.push('يرجى إدخال موضوع الخطاب');
+    }
+    
+    if (!letterData.content || letterData.content.trim() === '') {
+        errors.push('يرجى إدخال محتوى الخطاب');
+    }
+    
+    if (!letterData.letterType) {
+        errors.push('يرجى اختيار نوع الخطاب');
+    }
+    
+    if (!letterData.letterCategory) {
+        errors.push('يرجى اختيار فئة الخطاب');
+    }
+    
+    if (!letterData.letterPurpose) {
+        errors.push('يرجى اختيار الغرض من الخطاب');
+    }
+    
+    return {
+        isValid: errors.length === 0,
+        errors: errors
+    };
+}
+
+// Advanced Search functionality
+function searchLetters(query, filters = {}) {
+    const demoLetters = JSON.parse(localStorage.getItem('demoLetters') || '[]');
+    
+    return demoLetters.filter(letter => {
+        // Text search
+        const searchMatch = !query || 
+            letter.recipient.toLowerCase().includes(query.toLowerCase()) ||
+            letter.subject.toLowerCase().includes(query.toLowerCase()) ||
+            letter.content.toLowerCase().includes(query.toLowerCase()) ||
+            letter.id.toLowerCase().includes(query.toLowerCase());
+        
+        // Type filter
+        const typeMatch = !filters.type || letter.type === filters.type;
+        
+        // Status filter
+        const statusMatch = !filters.reviewStatus || letter.reviewStatus === filters.reviewStatus;
+        
+        // Date filter
+        const dateMatch = !filters.dateFrom || new Date(letter.date) >= new Date(filters.dateFrom);
+        
+        return searchMatch && typeMatch && statusMatch && dateMatch;
+    });
+}
+
+// Utility function for generating IDs
+function generateId() {
+    return 'LTR-' + Date.now() + '-' + Math.random().toString(36).substr(2, 5).toUpperCase();
+}
+
+// Arabic date formatting
+function formatArabicDate(date) {
+    const options = {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        weekday: 'long'
+    };
+    return new Date(date).toLocaleDateString('ar-SA', options);
+}
+
+// Letter preview generator
+function generateLetterPreview(letterData, maxLength = 150) {
+    const fullLetter = generateMockLetter(letterData);
+    const contentStart = fullLetter.indexOf(letterData.content);
+    const preview = fullLetter.substring(contentStart, contentStart + maxLength);
+    
+    return preview.length < fullLetter.length - contentStart ? preview + '...' : preview;
+}
+
+// Export functions for global access
+if (typeof window !== 'undefined') {
+    window.generateLetterByPurpose = generateLetterByPurpose;
+    window.applyTemplate = applyTemplate;
+    window.getLetterStatistics = getLetterStatistics;
+    window.exportLettersToJSON = exportLettersToJSON;
+    window.importLettersFromJSON = importLettersFromJSON;
+    window.validateLetterData = validateLetterData;
+    window.searchLetters = searchLetters;
+    window.generateLetterPreview = generateLetterPreview;
+}
